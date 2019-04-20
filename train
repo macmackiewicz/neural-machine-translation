@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+import os
+import sys
+import json
+from pathlib import Path
+
+from scripts.train_seq2seq import train
+
+
+sagemaker_dir = '/opt/ml'
+data_dir = os.path.join(sagemaker_dir, 'input/data/training')
+output_dir = os.path.join(sagemaker_dir, 'model')
+params_path = os.path.join(sagemaker_dir, 'input/config/hyperparameters.json')
+
+DEFAULT_DATA_FILENAME = 'deu.txt'
+
+
+def main():
+    hyper_parameters = {}
+
+    if Path(params_path).is_file():
+        with open(params_path, 'r') as f:
+            hyper_parameters = json.load(f)
+
+    train_test_split = hyper_parameters.get('train_test_split', 0.2)
+    data_filename = hyper_parameters.get('data_filename', DEFAULT_DATA_FILENAME)
+    data_path = os.path.join(data_dir, data_filename)
+
+    train(data_path, output_dir, train_test_split)
+
+
+if __name__ == '__main__':
+    main()
+
+    sys.exit(0)

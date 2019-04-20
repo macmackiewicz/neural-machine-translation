@@ -1,0 +1,3 @@
+-r requirements.txt
+boto3==1.9.134
+sagemaker==1.18.15

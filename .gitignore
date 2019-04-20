@@ -1,0 +1,12 @@
+.ipynb_checkpoints/
+checkpoints/
+data/
+build/
+dist/
+.idea/
+*.egg-info/
+*.ipynb
+**/__pycache__/
+*.pyc
+.DS_Store
+.git/

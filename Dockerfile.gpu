@@ -1,0 +1,13 @@
+FROM tensorflow/tensorflow:1.12.0-gpu-py3
+
+COPY ./requirements-gpu.txt /opt/program/
+WORKDIR /opt/program
+
+RUN pip install -r requirements-gpu.txt
+
+COPY ./nmt_cli.py ./setup.py ./train /opt/program/
+COPY ./nmt/ /opt/program/nmt/
+COPY ./scripts/ /opt/program/scripts/
+RUN python setup.py install
+
+ENV PATH="/opt/program:${PATH}"
