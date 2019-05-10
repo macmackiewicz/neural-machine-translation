@@ -32,7 +32,8 @@ class BaseDataset(SourceTargetMixin):
         target_len = len(self.target)
         if src_len != target_len:
             raise TypeError('Number of source rows ({}) does not match '
-                            'the number of target rows ({})'.format(src_len, target_len))
+                            'the number of target rows ({})'.format(src_len,
+                                                                    target_len))
 
     def shuffle(self, seed: int=42) -> None:
         np.random.seed(seed)
@@ -70,13 +71,13 @@ class TextDataset(BaseDataset):
 
     @property
     def source_vocab_size(self) -> int:
-        return self.vocab_size('source')
+        return self.get_vocab_size('source')
 
     @property
     def target_vocab_size(self) -> int:
-        return self.vocab_size('target')
+        return self.get_vocab_size('target')
 
-    def vocab_size(self, level: str) -> int:
+    def get_vocab_size(self, level: str) -> int:
         if not self.tokenizer_pair.is_tokenized:
             raise ValueError('Dataset has not been tokenized yet')
         return len(self.tokenizer_pair[level].word_index) + 1
@@ -100,14 +101,7 @@ class TextDataset(BaseDataset):
         )
 
     def encode_output(self, sequences: np.array) -> np.array:
-        encoder_fn = lambda x: to_categorical(
-            x, num_classes=self.vocab_size('target'))
-
-        encoded_output = encoder_fn(sequences)
-
-        return np.reshape(encoded_output, (sequences.shape[0],
-                                           sequences.shape[1],
-                                           self.vocab_size('target')))
+        return to_categorical(sequences, self.target_vocab_size)
 
     def sequence_to_sentence(self, sequence: Iterable) -> str:
         target_sentence = []

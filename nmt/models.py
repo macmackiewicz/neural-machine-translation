@@ -1,5 +1,6 @@
 import numpy as np
 
+from keras.optimizers import Adam
 from keras.models import Sequential
 from keras.layers import (
     Embedding, Dense, LSTM, TimeDistributed, RepeatVector, Bidirectional,
@@ -16,14 +17,18 @@ class Sequence2Sequence:
                             n_units,
                             input_length=source_max_sentence_length,
                             mask_zero=True))
-        model.add(Bidirectional(LSTM(n_units)))
+        model.add(Bidirectional(LSTM(n_units, activation='relu')))
+        model.add(Dropout(0.2))
         model.add(RepeatVector(target_max_sentence_length))
-        model.add(LSTM(n_units, return_sequences=True))
+        model.add(LSTM(n_units, activation='relu', return_sequences=True))
         model.add(Dropout(0.2))
         model.add(TimeDistributed(
             Dense(target_vocab_size, activation='softmax')))
 
-        model.compile(optimizer='adam', loss='categorical_crossentropy')
+        optimizer = Adam(lr=1e-3, decay=1e-5)
+
+        model.compile(optimizer=optimizer, loss='categorical_crossentropy',
+                      metrics=['accuracy'])
 
         self._model = model
 
