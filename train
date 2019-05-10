@@ -26,7 +26,12 @@ def main():
     data_filename = hyper_parameters.get('data_filename', DEFAULT_DATA_FILENAME)
     data_path = os.path.join(data_dir, data_filename)
 
-    train(data_path, output_dir, train_test_split)
+    evaluator = train(data_path, output_dir, train_test_split)
+    evaluator.save_artifacts(output_dir)
+
+    # save hyperparameters to be able to reconstruct model details
+    with open(os.path.join(output_dir, 'hyperparameters.json'), 'w') as f:
+        json.dump(hyper_parameters, f)
 
 
 if __name__ == '__main__':

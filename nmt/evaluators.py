@@ -1,3 +1,6 @@
+import os
+import json
+
 from cached_property import cached_property
 from nltk.translate.bleu_score import corpus_bleu
 
@@ -27,29 +30,21 @@ class Sequence2SequenceEvaluator:
     def train_set_length(self):
         return int(len(self.dataset.source) * (1 - self.train_test_split))
 
-    @property
-    def x_train(self):
-        return self.dataset.get_sequences('source')[:self.train_set_length]
+    @cached_property
+    def x(self):
+        return self.dataset.get_sequences('source')
 
-    @property
-    def x_test(self):
-        return self.dataset.get_sequences('source')[self.train_set_length:]
+    @cached_property
+    def y(self):
+        return self.dataset.encode_output(self.dataset.get_sequences('target'))
 
-    @property
-    def y_train(self):
-        return self.dataset.encode_output(
-            self.dataset.get_sequences('target')[:self.train_set_length]
-        )
+    def train(self, **kwargs):
+        self.model.fit(self.x, self.y, validation_split=self.train_test_split,
+                       **kwargs)
 
-    @property
-    def y_test(self):
-        return self.dataset.encode_output(
-            self.dataset.get_sequences('target')[self.train_set_length:]
-        )
-
-    def train(self, *args, **kwargs): #pylint: disable=W0613
-        self.model.fit(self.x_train, self.y_train,
-                       validation_data=(self.x_test, self.y_test), **kwargs)
+    def save_artifacts(self, output_dir: str):
+        with open(os.path.join(output_dir, 'model_config.json'), 'w') as f:
+            json.dump(self.model.get_config(), f)
 
     def predict_sentence(self, sentence):
         sequence = self.dataset.sentence_to_sequence(sentence)
