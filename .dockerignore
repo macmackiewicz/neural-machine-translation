@@ -10,3 +10,4 @@ dist/
 *.pyc
 .DS_Store
 .git/
+.env
