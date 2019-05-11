@@ -1,10 +1,20 @@
 import os
+import time
 
 from keras.callbacks import ModelCheckpoint, TensorBoard
-from sagemaker.utils import sagemaker_timestamp
 
 from nmt.evaluators import Sequence2SequenceEvaluator
 from nmt.readers import DelimitedTxtReader
+
+
+def sagemaker_timestamp():
+    """
+    Return a timestamp with millisecond precision.
+    As implemented in sagemaker.utils.sagemaker_timestamp
+    """
+    moment = time.time()
+    moment_ms = repr(moment).split('.')[1][:3]
+    return time.strftime("%Y-%m-%d-%H-%M-%S-{}".format(moment_ms), time.gmtime(moment))
 
 
 def train(data_path: str, checkpoint_dir: str, train_test_split: float=0.2,
