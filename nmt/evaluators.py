@@ -6,6 +6,7 @@ from nltk.translate.bleu_score import corpus_bleu
 
 from nmt.datasets import TextDataset
 from nmt.models import Sequence2Sequence
+from nmt.utils import sagemaker_timestamp
 
 
 class Sequence2SequenceEvaluator:
@@ -16,6 +17,7 @@ class Sequence2SequenceEvaluator:
         # is serialized as string
         self.train_test_split = float(train_test_split)
 
+        self.timestamp = sagemaker_timestamp()
         # dataset has to be tokenized before its properties can be passed
         # to model constructor
         self.dataset.tokenize()
@@ -38,13 +40,29 @@ class Sequence2SequenceEvaluator:
     def y(self):
         return self.dataset.encode_output(self.dataset.get_sequences('target'))
 
+    @classmethod
+    def reconstruct_from_weights(cls, dataset: TextDataset,
+                                 model_weights_path: str,
+                                 train_test_split: float=0.2):
+        dataset.tokenize()
+        evaluator = cls(dataset, train_test_split)
+        evaluator.model.load_weights(model_weights_path)
+        return evaluator
+
     def train(self, **kwargs):
         self.model.fit(self.x, self.y, validation_split=self.train_test_split,
-                       **kwargs)
+                       shuffle=False, **kwargs)
 
     def save_artifacts(self, output_dir: str):
-        with open(os.path.join(output_dir, 'model_config.json'), 'w') as f:
+        timestamp_output_dir = os.path.join(output_dir, self.timestamp)
+
+        config_path = os.path.join(timestamp_output_dir, 'model_config.json')
+        with open(config_path, 'w') as f:
             json.dump(self.model.get_config(), f)
+
+        bleu_score_path = os.path.join(timestamp_output_dir, 'bleu_score.json')
+        with open(bleu_score_path, 'w') as f:
+            json.dump(self.get_bleu_score(), f)
 
     def predict_sentence(self, sentence):
         sequence = self.dataset.sentence_to_sequence(sentence)
@@ -52,20 +70,20 @@ class Sequence2SequenceEvaluator:
         return self.dataset.sequence_to_sentence(predicted_sequence)
 
     def get_bleu_score(self) -> dict:
-        original_sentences = []
+        references = []
         predicted_sentences = []
 
-        for sentence in self.dataset.target[self.train_set_length:]:
-            original_sentences.append(sentence.split())
+        for sentence in self.dataset.source[self.train_set_length:]:
+            references.append(self.dataset.translation_references[sentence])
             predicted_sentences.append(self.predict_sentence(sentence).split())
 
         return {
-            'bleu1': corpus_bleu(original_sentences, predicted_sentences,
-                                 weights=(1.0, 0, 0, 0)),
-            'bleu2': corpus_bleu(original_sentences, predicted_sentences,
-                                 weights=(0.5, 0.5, 0, 0)),
-            'bleu3': corpus_bleu(original_sentences, predicted_sentences,
-                                 weights=(0.33, 0.33, 0.33, 0)),
-            'bleu4': corpus_bleu(original_sentences, predicted_sentences,
-                                 weights=(0.25, 0.25, 0.25, 0.25)),
+            'bleu_1gram': corpus_bleu(references, predicted_sentences,
+                                      weights=(1.0, 0, 0, 0)),
+            'bleu_2gram': corpus_bleu(references, predicted_sentences,
+                                      weights=(0.5, 0.5, 0, 0)),
+            'bleu_3gram': corpus_bleu(references, predicted_sentences,
+                                      weights=(0.33, 0.33, 0.33, 0)),
+            'bleu_4gram': corpus_bleu(references, predicted_sentences,
+                                      weights=(0.25, 0.25, 0.25, 0.25)),
         }

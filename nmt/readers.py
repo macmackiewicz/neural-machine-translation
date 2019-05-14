@@ -1,9 +1,11 @@
+from abc import ABCMeta, abstractclassmethod
+
 import numpy as np
 
 from nmt.datasets import TextDataset
 
 
-class BaseReader:
+class BaseTxtReader(metaclass=ABCMeta):
     def __init__(self, data_path):
         self.data_path = data_path
 
@@ -11,11 +13,12 @@ class BaseReader:
         with open(self.data_path, mode='r', encoding='utf-8') as file:
             return [line.strip() for line in file.readlines()]
 
-    def get_dataset(self, *args, **kwargs):
+    @abstractclassmethod
+    def get_dataset(self):
         raise NotImplementedError
 
 
-class DelimitedTxtReader(BaseReader):
+class DelimitedTxtReader(BaseTxtReader):
     def get_dataset(self, delimiter='\t', source_first=False) -> TextDataset:
 
         content = self.get_txt_file_content()

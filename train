@@ -29,8 +29,11 @@ def main():
     evaluator = train(data_path, output_dir, train_test_split)
     evaluator.save_artifacts(output_dir)
 
-    # save hyperparameters to be able to reconstruct model details
-    with open(os.path.join(output_dir, 'hyperparameters.json'), 'w') as f:
+    # save hyperparameters containing model configuration
+    # to be able to properly reconstruct the model
+    hyper_parameters_path = os.path.join(output_dir, evaluator.timestamp,
+                                         'hyperparameters.json')
+    with open(hyper_parameters_path, 'w') as f:
         json.dump(hyper_parameters, f)
 
 

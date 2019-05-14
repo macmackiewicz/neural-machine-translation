@@ -1,9 +1,11 @@
+from collections import defaultdict
 from typing import Union, Iterable, Sized
 
 import numpy as np
+from cached_property import cached_property
 from keras.utils import to_categorical
-from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.text import Tokenizer, text_to_word_sequence
 
 
 class SourceTargetMixin:
@@ -52,6 +54,10 @@ class TokenizerPair(SourceTargetMixin):
         return hasattr(self.source, 'word_index') \
                and hasattr(self.target, 'word_index')
 
+    @cached_property
+    def target_index_word(self):
+        return {v: k for k, v in self.target.word_index.items()}
+
 
 class TextDataset(BaseDataset):
     def __init__(self, source_sentences: Union[Iterable, Sized],
@@ -60,6 +66,14 @@ class TextDataset(BaseDataset):
         super().__init__(source_sentences, target_sentences, shuffle)
 
         self.tokenizer_pair = TokenizerPair()
+
+    @cached_property
+    def translation_references(self):
+        references = defaultdict(list)
+        for idx, sentence in enumerate(self.source):
+            split_sentence = text_to_word_sequence(self.target[idx])
+            references[sentence].append(split_sentence)
+        return references
 
     @property
     def source_max_sentence_length(self) -> int:
@@ -106,7 +120,7 @@ class TextDataset(BaseDataset):
     def sequence_to_sentence(self, sequence: Iterable) -> str:
         target_sentence = []
         for idx in sequence:
-            word = self.tokenizer_pair['target'].index_word.get(idx)
+            word = self.tokenizer_pair.target_index_word.get(idx)
             if word is None:
                 break
             target_sentence.append(word)
