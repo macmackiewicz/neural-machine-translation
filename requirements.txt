@@ -1,7 +1,5 @@
 cached-property==1.5.1
-Click==7.0
 Keras==2.1.6
 numpy==1.16.2
 nltk==3.4
-pandas==0.24.2
 tensorflow==1.12.0

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from boto3.session import Session
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-load_dotenv(dotenv_path=os.path.join(BASE_DIR, '.env'))
+load_dotenv(dotenv_path=os.path.join(BASE_DIR, '.env'), override=True)
 
 region = os.environ.get('AWS_REGION', 'us-east-1')
 role = os.environ.get('SAGEMAKER_ROLE', 'sagemaker')
