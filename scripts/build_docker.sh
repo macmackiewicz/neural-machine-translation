@@ -14,7 +14,7 @@ echo "Current version: ${NMT_VERSION}"
 
 if [ "${IMAGE_TYPE}" = "cpu" ]; then
     echo "Using cpu version of docker image"
-    DOCKERFILE=Dockerfile
+    DOCKERFILE=Dockerfile.cpu
     IMAGE_URI=${BASE_IMAGE_URI}:${NMT_VERSION}
     IMAGE_URI_LATEST=${BASE_IMAGE_URI}:latest
 else
@@ -25,7 +25,7 @@ else
 fi
 
 echo "Building docker image..."
-docker build -t ${IMAGE_URI} -f ${DOCKERFILE} .
+docker build -t ${IMAGE_URI} -f ./docker/${DOCKERFILE} .
 docker tag ${IMAGE_URI} ${IMAGE_URI_LATEST}
 
 echo "Pushing docker image..."

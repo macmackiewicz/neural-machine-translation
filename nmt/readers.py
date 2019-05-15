@@ -1,3 +1,10 @@
+"""
+Readers are intended to handle reading and parsing files containing data.
+Each new reader should inherit from BaseReader and implement get_dataset
+abstract method that transforms parsed file content into appropriate
+dataset object.
+"""
+
 from abc import ABCMeta, abstractclassmethod
 
 import numpy as np
@@ -5,7 +12,7 @@ import numpy as np
 from nmt.datasets import TextDataset
 
 
-class BaseTxtReader(metaclass=ABCMeta):
+class BaseReader(metaclass=ABCMeta):
     def __init__(self, data_path):
         self.data_path = data_path
 
@@ -18,7 +25,7 @@ class BaseTxtReader(metaclass=ABCMeta):
         raise NotImplementedError
 
 
-class DelimitedTxtReader(BaseTxtReader):
+class DelimitedTxtReader(BaseReader):
     def get_dataset(self, delimiter='\t', source_first=False) -> TextDataset:
 
         content = self.get_txt_file_content()
