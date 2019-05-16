@@ -1,6 +1,6 @@
 -r requirements.txt
+-c constraints.txt
 boto3==1.9.134
 Click==7.0
-jupyter==1.0.0
 python-dotenv==0.10.1
-sagemaker==1.18.15
+sagemaker==1.20.3

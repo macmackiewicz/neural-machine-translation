@@ -5,9 +5,8 @@ WORKDIR /opt/program
 
 RUN pip install -r requirements-gpu.txt
 
-COPY ./nmt_cli.py ./setup.py ./train /opt/program/
+COPY ./train /opt/program/
 COPY ./nmt/ /opt/program/nmt/
 COPY ./scripts/ /opt/program/scripts/
-RUN python setup.py install
 
 ENV PATH="/opt/program:${PATH}"

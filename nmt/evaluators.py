@@ -1,12 +1,12 @@
 import os
 import json
+import time
 
 from cached_property import cached_property
 from nltk.translate.bleu_score import corpus_bleu
 
 from nmt.datasets import TextDataset
 from nmt.models import Sequence2Sequence
-from nmt.utils import sagemaker_timestamp
 
 
 class Sequence2SequenceEvaluator:
@@ -87,3 +87,17 @@ class Sequence2SequenceEvaluator:
             'bleu_4gram': corpus_bleu(references, predicted_sentences,
                                       weights=(0.25, 0.25, 0.25, 0.25)),
         }
+
+####################
+# HELPER FUNCTIONS #
+####################
+
+
+def sagemaker_timestamp():
+    """
+    Return a timestamp with millisecond precision.
+    As implemented in sagemaker.utils.sagemaker_timestamp
+    """
+    moment = time.time()
+    moment_ms = repr(moment).split('.')[1][:3]
+    return time.strftime("%Y-%m-%d-%H-%M-%S-{}".format(moment_ms), time.gmtime(moment))

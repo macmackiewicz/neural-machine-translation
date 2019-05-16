@@ -4,7 +4,7 @@ import sys
 import json
 from pathlib import Path
 
-from scripts.train_seq2seq import train
+from nmt.utils import train_seq2seq
 
 
 sagemaker_dir = '/opt/ml'
@@ -26,7 +26,7 @@ def main():
     data_filename = hyper_parameters.get('data_filename', DEFAULT_DATA_FILENAME)
     data_path = os.path.join(data_dir, data_filename)
 
-    evaluator = train(data_path, output_dir, train_test_split)
+    evaluator = train_seq2seq(data_path, output_dir, train_test_split)
     evaluator.save_artifacts(output_dir)
 
     # save hyperparameters containing model configuration
