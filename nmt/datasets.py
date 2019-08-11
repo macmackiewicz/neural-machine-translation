@@ -118,13 +118,10 @@ class TextDataset(BaseDataset):
         return to_categorical(sequences, self.target_vocab_size)
 
     def sequence_to_sentence(self, sequence: Iterable) -> str:
-        target_sentence = []
-        for idx in sequence:
-            word = self.tokenizer_pair.target_index_word.get(idx)
-            if word is None:
-                break
-            target_sentence.append(word)
-
+        target_sentence = [
+            self.tokenizer_pair.target_index_word.get(word_index)
+            for word_index in sequence
+        ]
         return ' '.join(target_sentence)
 
     def sentence_to_sequence(self, sentence: str) -> np.ndarray:

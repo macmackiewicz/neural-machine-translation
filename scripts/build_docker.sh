@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -e
 
 export IMAGE_TYPE=$1
@@ -12,7 +13,7 @@ aws ecr get-login --no-include-email --region ${AWS_REGION} | sh
 NMT_VERSION=$(python setup.py --version)
 echo "Current version: ${NMT_VERSION}"
 
-if [ "${IMAGE_TYPE}" = "cpu" ]; then
+if [[ "${IMAGE_TYPE}" = "cpu" ]]; then
     echo "Using cpu version of docker image"
     DOCKERFILE=Dockerfile.cpu
     IMAGE_URI=${BASE_IMAGE_URI}:${NMT_VERSION}
