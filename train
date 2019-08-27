@@ -3,6 +3,7 @@ import os
 import sys
 import json
 from pathlib import Path
+from copy import deepcopy
 
 from nmt.utils import train_seq2seq
 
@@ -15,6 +16,21 @@ params_path = os.path.join(sagemaker_dir, 'input/config/hyperparameters.json')
 DEFAULT_DATA_FILENAME = 'deu.txt'
 
 
+def sanitise_hyper_parameters(hyper_parameters: dict) -> dict:
+    sanitised_hyper_parameters = {}
+
+    for key, val in hyper_parameters.items():
+        if val.isdigit():
+            sanitised_hyper_parameters[key] = int(val)
+            continue
+        try:
+            sanitised_hyper_parameters[key] = float(val)
+        except ValueError:
+            sanitised_hyper_parameters[key] = val
+
+    return sanitised_hyper_parameters
+
+
 def main():
     hyper_parameters = {}
 
@@ -22,11 +38,21 @@ def main():
         with open(params_path, 'r') as f:
             hyper_parameters = json.load(f)
 
-    train_test_split = hyper_parameters.get('train_test_split', 0.2)
-    data_filename = hyper_parameters.get('data_filename', DEFAULT_DATA_FILENAME)
+    original_hyper_parameters = deepcopy(hyper_parameters)
+
+    train_test_split = float(hyper_parameters.pop('train_test_split', 0.2))
+    data_filename = hyper_parameters.pop('data_filename', DEFAULT_DATA_FILENAME)
+    epochs = int(hyper_parameters.pop('epochs', 15))
+
     data_path = os.path.join(data_dir, data_filename)
 
-    evaluator = train_seq2seq(data_path, output_dir, train_test_split)
+    # handle hyperparematers coming from Sagemaker
+    hyper_parameters.pop('_tuning_objective_metric', None)
+    sanitised_hyper_parameters = sanitise_hyper_parameters(hyper_parameters)
+
+    evaluator = train_seq2seq(data_path, output_dir, train_test_split, epochs,
+                              **sanitised_hyper_parameters)
+
     evaluator.save_artifacts(output_dir)
 
     # save hyperparameters containing model configuration
@@ -34,7 +60,7 @@ def main():
     hyper_parameters_path = os.path.join(output_dir, evaluator.timestamp,
                                          'hyperparameters.json')
     with open(hyper_parameters_path, 'w') as f:
-        json.dump(hyper_parameters, f)
+        json.dump(original_hyper_parameters, f)
 
 
 if __name__ == '__main__':

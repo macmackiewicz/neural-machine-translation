@@ -12,3 +12,4 @@ dist/
 .DS_Store
 .git/
 .env
+.pytest_cache/

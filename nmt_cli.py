@@ -30,7 +30,7 @@ def main():
 def train(data_path: str, report_dir: str, train_test_split: float,
           verbose: int):
     click.echo('Let\'s 🚆')
-    train_seq2seq(data_path, report_dir, train_test_split, verbose)
+    train_seq2seq(data_path, report_dir, train_test_split)
 
 
 @main.command()

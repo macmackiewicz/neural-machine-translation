@@ -23,12 +23,18 @@ def sagemaker_train(config, wait=False):
     sess = sage.Session(boto_session=boto_sess)
     image = '{}/nmt:latest-gpu'.format(docker_registry)
 
+    metrics = [
+        {'Name': 'val_loss', 'Regex': 'val_loss: (.*?) -'},
+        {'Name': 'val_acc', 'Regex': 'val_acc: (.*)'},
+    ]
+
     clf = sage.estimator.Estimator(image_name=image,
                                    role=role,
                                    train_instance_count=1,
                                    train_instance_type=instance_type,
                                    hyperparameters=config,
                                    output_path='s3://{}/output'.format(s3_bucket),
-                                   sagemaker_session=sess)
+                                   sagemaker_session=sess,
+                                   metric_definitions=metrics)
 
     clf.fit({'training': 's3://{}/data'.format(s3_bucket)}, wait=wait)
