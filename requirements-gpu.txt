@@ -1,4 +1,4 @@
 cached-property==1.5.1
 Keras==2.1.6
-nltk==3.4
+nltk==3.4.5
 numpy==1.16.2

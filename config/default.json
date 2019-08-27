@@ -1,4 +1,4 @@
 {
   "train_test_split": 0.2,
-  "data_filename": "deu.txt"
+  "data_filename": "deu-filtered-100k.txt"
 }

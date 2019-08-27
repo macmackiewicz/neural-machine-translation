@@ -40,16 +40,19 @@ def main():
 
     original_hyper_parameters = deepcopy(hyper_parameters)
 
-    train_test_split = hyper_parameters.pop('train_test_split', 0.2)
+    train_test_split = float(hyper_parameters.pop('train_test_split', 0.2))
     data_filename = hyper_parameters.pop('data_filename', DEFAULT_DATA_FILENAME)
+    epochs = int(hyper_parameters.pop('epochs', 15))
+
     data_path = os.path.join(data_dir, data_filename)
 
     # handle hyperparematers coming from Sagemaker
     hyper_parameters.pop('_tuning_objective_metric', None)
     sanitised_hyper_parameters = sanitise_hyper_parameters(hyper_parameters)
 
-    evaluator = train_seq2seq(data_path, output_dir, train_test_split,
+    evaluator = train_seq2seq(data_path, output_dir, train_test_split, epochs,
                               **sanitised_hyper_parameters)
+
     evaluator.save_artifacts(output_dir)
 
     # save hyperparameters containing model configuration

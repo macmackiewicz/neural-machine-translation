@@ -1,3 +1,5 @@
+from typing import Tuple, List
+
 import numpy as np
 
 from keras.models import Model
@@ -16,9 +18,7 @@ class Sequence2Sequence:
         encoder_embeddings = Embedding(source_vocab_size + 1, n_units,
                                        mask_zero=True)(encoder_inputs)
         encoder_outputs, forward_h, forward_c, backward_h, backward_c = \
-            Bidirectional(
-                LSTM(n_units, return_state=True, return_sequences=True)
-            )(encoder_embeddings)
+            Bidirectional(LSTM(n_units, return_state=True))(encoder_embeddings)
 
         state_h = Concatenate()([forward_h, backward_h])
         state_c = Concatenate()([forward_c, backward_c])
@@ -27,6 +27,8 @@ class Sequence2Sequence:
         decoder_inputs = Input(shape=(None,))
         decoder_embeddings = Embedding(target_vocab_size + 1, n_units,
                                        mask_zero=True)(decoder_inputs)
+        # returned states are not used for training model,
+        # but will be used for inference
         decoder_lstm = LSTM(n_units * 2, return_sequences=True,
                             return_state=True)
         decoder_outputs, _, _ = decoder_lstm(decoder_embeddings,
@@ -46,13 +48,14 @@ class Sequence2Sequence:
         decoder_state_input_h = Input(shape=(n_units * 2,))
         decoder_state_input_c = Input(shape=(n_units * 2,))
         decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
+
         decoder_outputs, state_h, state_c = decoder_lstm(
             decoder_embeddings, initial_state=decoder_states_inputs)
+
         decoder_states = [state_h, state_c]
         decoder_outputs = decoder_dense(decoder_outputs)
-        decoder_model = Model(
-            [decoder_inputs] + decoder_states_inputs,
-            [decoder_outputs] + decoder_states)
+        decoder_model = Model([decoder_inputs] + decoder_states_inputs,
+                              [decoder_outputs] + decoder_states)
 
         return cls(target_max_sentence_length, training_model, encoder_model,
                    decoder_model)
@@ -64,27 +67,56 @@ class Sequence2Sequence:
         self.encoder_model = encoder_model
         self.decoder_model = decoder_model
 
-    def fit(self, *args, **kwargs):
-        return self.training_model.fit(*args, **kwargs)
+    def _decode_next_token(self, token: np.array, state: np.array) \
+            -> Tuple[np.array, np.array, np.array]:
+        next_token_predictions, h, c = self.decoder_model.predict(
+            [token] + state
+        )
+        return next_token_predictions[0, 0, :], h, c
 
-    def predict_sequence(self, sequence: np.ndarray) -> list:
+    def predict_sequence(self, sequence: np.ndarray, beam_width=3) -> List[int]:
         state = self.encoder_model.predict(sequence)
 
-        predicted_sequence = []
-        # initialise target sequence with start of sequence token index
-        target_sequence = np.array([0])
+        # decode initial tokens using start-of-sequence token
+        next_token_predictions, h, c = self._decode_next_token(np.array([0]),
+                                                               state)
 
-        while len(predicted_sequence) <= self.target_max_sentence_length:
-            predicted_tokens, h, c = self.decoder_model.predict(
-                [target_sequence] + state
-            )
-            # TODO: replace with BEAM search
-            predicted_word_index = np.argmax(predicted_tokens[0, 0, :])
-            if predicted_word_index == 0:
-                break
-            predicted_sequence.append(predicted_word_index)
+        # take tokens with highest probabilities up to beam_width
+        candidate_tokens = next_token_predictions.argsort()[-beam_width:][::-1]
+        state = [h, c]
 
-            target_sequence = np.array([predicted_word_index])
-            state = [h, c]
+        # tuple with sequence probability, decoded sequence
+        # and decoded sequence's state
+        sequence_candidates = [
+            (np.log(next_token_predictions[idx]), [idx], state)
+            for idx in candidate_tokens
+        ]
 
-        return predicted_sequence
+        for _ in range(self.target_max_sentence_length):
+            new_sequence_candidates = []
+
+            for probability, target_sequence, state in sequence_candidates:
+                # sequences that reached end-of-sequence tokens
+                # are kept as candidates
+                if target_sequence[-1] == 0:
+                    new_sequence_candidates.append((probability,
+                                                    target_sequence, state))
+                    continue
+
+                next_token_predictions, h, c = self._decode_next_token(
+                    np.array([target_sequence[-1]]), state)
+
+                # logarithm of tokens' probabilities
+                # given probability of a sequence decoded so far
+                sequence_conditional_probability = \
+                    np.log(next_token_predictions) + probability
+
+                for idx, p in enumerate(sequence_conditional_probability):
+                    new_sequence_candidates.append(
+                        (p, target_sequence + [idx], [h, c])
+                    )
+            sequence_candidates = sorted(new_sequence_candidates,
+                                         key=lambda x: x[0])[-beam_width:]
+
+        # return sequence with highest logarithm of conditional probabilities
+        return sorted(sequence_candidates, key=lambda x: x[0])[-1][1]

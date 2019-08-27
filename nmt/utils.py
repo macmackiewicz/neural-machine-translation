@@ -7,7 +7,8 @@ from nmt.readers import DelimitedTxtReader
 
 
 def train_seq2seq(data_path: str, report_dir: str, train_test_split: float=0.2,
-                  **hyperparameters) -> Sequence2SequenceEvaluator:
+                  epochs: int=15, **hyperparameters) \
+        -> Sequence2SequenceEvaluator:
     reader = DelimitedTxtReader(data_path)
     dataset = reader.get_dataset()
 
@@ -16,15 +17,14 @@ def train_seq2seq(data_path: str, report_dir: str, train_test_split: float=0.2,
 
     output_dir = os.path.join(report_dir, evaluator.timestamp)
 
-    checkpoint_path = '{}/model-{}.h5'.format(output_dir,
-                                              evaluator.timestamp)
+    checkpoint_path = '{}/checkpoint.h5'.format(output_dir,
+                                                evaluator.timestamp)
     checkpoint_callback = ModelCheckpoint(checkpoint_path, monitor='val_loss',
                                           verbose=2, save_best_only=True,
                                           mode='min')
     tensorboard_callback = TensorBoard(os.path.join(output_dir))
 
-    evaluator.train(epochs=10, batch_size=64,
-                    callbacks=[checkpoint_callback, tensorboard_callback],
-                    verbose=2)
+    evaluator.train(epochs=epochs, verbose=2,
+                    callbacks=[checkpoint_callback, tensorboard_callback])
 
     return evaluator

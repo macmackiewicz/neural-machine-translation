@@ -8,6 +8,8 @@ Bilingual datasets can be found on [ManyThings.org](http://www.manythings.org/an
 Language pair used in this project is [deu-eng](http://www.manythings.org/anki/deu-eng.zip). 
 
 ## Running locally
+Required python version: 3.5.2.
+
 Install dependencies:
 ```commandline
 pip install -r requirements-dev.txt

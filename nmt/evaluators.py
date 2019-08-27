@@ -5,20 +5,40 @@ import logging
 
 import numpy as np
 from cached_property import cached_property
+from keras.utils import Sequence, to_categorical
 from nltk.translate.bleu_score import corpus_bleu
 
 from nmt.datasets import TextDataset
 from nmt.models import Sequence2Sequence
 
 
+class SequenceGenerator(Sequence):
+    def __init__(self, X, y, target_vocab_size, batch_size=64):
+        self.X = X
+        self.y = y
+        self.target_vocab_size = target_vocab_size
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return int(np.floor(len(self.X) / self.batch_size))
+
+    def __getitem__(self, idx):
+        batch_x = self.X[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
+
+        y_decode = np.c_[np.zeros(batch_y.shape[0]), batch_y]
+        y_encoded = to_categorical(
+            np.c_[batch_y, np.zeros(batch_y.shape[0])], self.target_vocab_size
+        )
+
+        return [batch_x, y_decode], y_encoded
+
+
 class Sequence2SequenceEvaluator:
     def __init__(self, dataset: TextDataset, train_test_split: float=0.2,
                  **hyperparameters):
         self.dataset = dataset
-
-        # ensure float, since value provided by sagemaker's hyperparameters
-        # is serialized as string
-        self.train_test_split = float(train_test_split)
+        self.train_test_split = train_test_split
 
         self.timestamp = sagemaker_timestamp()
         # dataset has to be tokenized before its properties can be passed
@@ -54,27 +74,31 @@ class Sequence2SequenceEvaluator:
 
     @cached_property
     def y(self):
-        # return self.dataset.encode_output(self.dataset.get_sequences('target'))
         return self.dataset.get_sequences('target')
 
     @classmethod
     def reconstruct_from_weights(cls, dataset: TextDataset,
                                  model_weights_path: str,
                                  train_test_split: float=0.2):
-        # TODO: fix model reconstruction
         dataset.tokenize()
         evaluator = cls(dataset, train_test_split)
-        evaluator.model.load_weights(model_weights_path)
+        evaluator.model.training_model.load_weights(model_weights_path)
+
         return evaluator
 
-    def train(self, **kwargs):
-        y_decode = np.c_[np.zeros(self.y.shape[0]), self.y]
-        y_encoded = self.dataset.encode_output(
-            np.c_[self.y, np.zeros(self.y.shape[0])]
+    def train(self, **kwargs) -> 'Sequence2SequenceEvaluator':
+        fit_generator = SequenceGenerator(self.x[:self.train_set_length],
+                                          self.y[:self.train_set_length],
+                                          self.dataset.target_vocab_size)
+        validate_generator = SequenceGenerator(self.x[self.train_set_length:],
+                                               self.y[self.train_set_length:],
+                                               self.dataset.target_vocab_size)
+
+        self.model.training_model.fit_generator(
+            fit_generator, validation_data=validate_generator, shuffle=True,
+            **kwargs
         )
-        self.model.fit([self.x, y_decode], y_encoded,
-                       validation_split=self.train_test_split, shuffle=False,
-                       **kwargs)
+        return self
 
     def save_artifacts(self, output_dir: str):
         timestamp_output_dir = os.path.join(output_dir, self.timestamp)
@@ -83,16 +107,17 @@ class Sequence2SequenceEvaluator:
         with open(config_path, 'w') as f:
             json.dump(self.model.training_model.get_config(), f)
 
-        bleu_score_path = os.path.join(timestamp_output_dir, 'bleu_score.json')
-        with open(bleu_score_path, 'w') as f:
-            json.dump(self.get_bleu_score(), f)
+        self.model.training_model.save_weights(
+            '{}/weights.h5'.format(output_dir))
 
     def predict_sentence(self, sentence):
         sequence = self.dataset.sentence_to_sequence(sentence)
         predicted_sequence = self.model.predict_sequence(sequence)
         return self.dataset.sequence_to_sentence(predicted_sequence)
 
-    def get_bleu_score(self) -> dict:
+    def get_bleu_score(self) -> float:
+        self.logger.info('Decoding sequences for evaluation with BLEU score')
+
         references = []
         predicted_sentences = []
 
@@ -100,22 +125,11 @@ class Sequence2SequenceEvaluator:
             references.append(self.dataset.translation_references[sentence])
             predicted_sentences.append(self.predict_sentence(sentence).split())
 
-        bleu_scores = {
-            'bleu_1gram': corpus_bleu(references, predicted_sentences,
-                                      weights=(1.0, 0, 0, 0)),
-            'bleu_2gram': corpus_bleu(references, predicted_sentences,
-                                      weights=(0.5, 0.5, 0, 0)),
-            'bleu_3gram': corpus_bleu(references, predicted_sentences,
-                                      weights=(0.33, 0.33, 0.33, 0)),
-            'bleu_4gram': corpus_bleu(references, predicted_sentences,
-                                      weights=(0.25, 0.25, 0.25, 0.25)),
-        }
+        bleu_score = corpus_bleu(references, predicted_sentences)
 
-        bleu_scores_log = ' '.join(['{}: {};'.format(k, v)
-                                    for k, v in bleu_scores.items()])
-        self.logger.info(bleu_scores_log)
+        self.logger.info('BLEU score: {}'.format(bleu_score))
 
-        return bleu_scores
+        return bleu_score
 
 ####################
 # HELPER FUNCTIONS #
