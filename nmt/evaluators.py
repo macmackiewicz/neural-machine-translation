@@ -35,11 +35,13 @@ class SequenceGenerator(Sequence):
 
 
 class Sequence2SequenceEvaluator:
-    def __init__(self, dataset: TextDataset, train_test_split: float=0.2,
-                 **hyperparameters):
+    def __init__(self, dataset: TextDataset, train_validation_split: float=0.2,
+                 train_test_split: float=0.0, **hyperparameters):
         self.dataset = dataset
+        self.train_validation_split = train_validation_split
         self.train_test_split = train_test_split
 
+        self._validate()
         self.timestamp = sagemaker_timestamp()
         # dataset has to be tokenized before its properties can be passed
         # to model constructor
@@ -64,8 +66,17 @@ class Sequence2SequenceEvaluator:
 
         return logger
 
+    def _validate(self):
+        if self.train_validation_split + self.train_test_split > 0.6:
+            raise ValueError('Validation and test splits should not exceed 0.6')
+
     @cached_property
-    def train_set_length(self):
+    def train_set_split(self):
+        return int(len(self.dataset.source) *
+                   (1 - self.train_validation_split - self.train_test_split))
+
+    @cached_property
+    def validation_set_split(self):
         return int(len(self.dataset.source) * (1 - self.train_test_split))
 
     @cached_property
@@ -78,21 +89,28 @@ class Sequence2SequenceEvaluator:
 
     @classmethod
     def reconstruct_from_weights(cls, dataset: TextDataset,
-                                 model_weights_path: str,
-                                 train_test_split: float=0.2):
+                                 model_weights_path: str, **kwargs
+                                 ) -> 'Sequence2SequenceEvaluator':
         dataset.tokenize()
-        evaluator = cls(dataset, train_test_split)
+        evaluator = cls(dataset, **kwargs)
         evaluator.model.training_model.load_weights(model_weights_path)
 
         return evaluator
 
-    def train(self, **kwargs) -> 'Sequence2SequenceEvaluator':
-        fit_generator = SequenceGenerator(self.x[:self.train_set_length],
-                                          self.y[:self.train_set_length],
-                                          self.dataset.target_vocab_size)
-        validate_generator = SequenceGenerator(self.x[self.train_set_length:],
-                                               self.y[self.train_set_length:],
-                                               self.dataset.target_vocab_size)
+    def train(self, batch_size: int=64, **kwargs) \
+            -> 'Sequence2SequenceEvaluator':
+        fit_generator = SequenceGenerator(
+            self.x[:self.train_set_split],
+            self.y[:self.train_set_split],
+            self.dataset.target_vocab_size,
+            batch_size=batch_size
+        )
+
+        validate_generator = SequenceGenerator(
+            self.x[self.train_set_split:self.validation_set_split],
+            self.y[self.train_set_split:self.validation_set_split],
+            self.dataset.target_vocab_size, batch_size=batch_size
+        )
 
         self.model.training_model.fit_generator(
             fit_generator, validation_data=validate_generator, shuffle=True,
@@ -120,10 +138,15 @@ class Sequence2SequenceEvaluator:
 
         references = []
         predicted_sentences = []
+        num_predicted_sequences = 0
 
-        for sentence in self.dataset.source[self.train_set_length:]:
+        for sentence in self.dataset.source[self.validation_set_split:]:
             references.append(self.dataset.translation_references[sentence])
             predicted_sentences.append(self.predict_sentence(sentence).split())
+            num_predicted_sequences += 1
+            if num_predicted_sequences % 1000 == 0:
+                self.logger.info(
+                    'Decoded {} sequences'.format(num_predicted_sequences))
 
         bleu_score = corpus_bleu(references, predicted_sentences)
 

@@ -43,6 +43,7 @@ def main():
     train_test_split = float(hyper_parameters.pop('train_test_split', 0.2))
     data_filename = hyper_parameters.pop('data_filename', DEFAULT_DATA_FILENAME)
     epochs = int(hyper_parameters.pop('epochs', 15))
+    batch_size = int(hyper_parameters.pop('batch_size', 64))
 
     data_path = os.path.join(data_dir, data_filename)
 
@@ -51,7 +52,7 @@ def main():
     sanitised_hyper_parameters = sanitise_hyper_parameters(hyper_parameters)
 
     evaluator = train_seq2seq(data_path, output_dir, train_test_split, epochs,
-                              **sanitised_hyper_parameters)
+                              batch_size, **sanitised_hyper_parameters)
 
     evaluator.save_artifacts(output_dir)
 

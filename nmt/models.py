@@ -4,40 +4,64 @@ import numpy as np
 
 from keras.models import Model
 from keras.layers import (
-    Embedding, Dense, LSTM, Bidirectional, Dropout, Input, Concatenate
+    Embedding, Dense, LSTM, Bidirectional, Input, Concatenate
 )
 
 
 class Sequence2Sequence:
     @classmethod
     def of(cls, source_vocab_size: int, target_vocab_size: int,
-           target_max_sentence_length: int, n_units: int=256,
-           dropout: float=0.1) -> 'Sequence2Sequence':
+           target_max_sentence_length: int, n_units: int=128,
+           embedding_size: int=150, encoder_layers: int=1, decoder_layers: int=1,
+           encoder_dropout: float=0.0, encoder_recurrent_dropout: float=0.0,
+           decoder_dropout: float=0.0, decoder_recurrent_dropout: float=0.0) \
+            -> 'Sequence2Sequence':
+        global encoder_lstm_inputs
+        global decoder_lstm_inputs
 
         encoder_inputs = Input(shape=(None,))
-        encoder_embeddings = Embedding(source_vocab_size + 1, n_units,
-                                       mask_zero=True)(encoder_inputs)
+        encoder_lstm_inputs = Embedding(source_vocab_size + 1, embedding_size,
+                                        mask_zero=True)(encoder_inputs)
+
+        # add stacked encoder layers
+        for _ in range(encoder_layers - 1):
+            encoder_lstm_inputs = Bidirectional(
+                LSTM(n_units, return_sequences=True, dropout=encoder_dropout,
+                     recurrent_dropout=encoder_recurrent_dropout)
+            )(encoder_lstm_inputs)
+
         encoder_outputs, forward_h, forward_c, backward_h, backward_c = \
-            Bidirectional(LSTM(n_units, return_state=True))(encoder_embeddings)
+            Bidirectional(LSTM(n_units, return_state=True,
+                               recurrent_dropout=encoder_recurrent_dropout,
+                               dropout=encoder_dropout)
+                          )(encoder_lstm_inputs)
 
         state_h = Concatenate()([forward_h, backward_h])
         state_c = Concatenate()([forward_c, backward_c])
         encoder_states = [state_h, state_c]
 
         decoder_inputs = Input(shape=(None,))
-        decoder_embeddings = Embedding(target_vocab_size + 1, n_units,
-                                       mask_zero=True)(decoder_inputs)
+        decoder_lstm_inputs = Embedding(target_vocab_size + 1, embedding_size,
+                                        mask_zero=True)(decoder_inputs)
+
+        # add stacked decoder layers
+        for _ in range(decoder_layers - 1):
+            decoder_lstm_inputs = LSTM(
+                n_units * 2, return_sequences=True, dropout=decoder_dropout,
+                recurrent_dropout=decoder_recurrent_dropout)(decoder_lstm_inputs)
+
         # returned states are not used for training model,
         # but will be used for inference
         decoder_lstm = LSTM(n_units * 2, return_sequences=True,
-                            return_state=True)
-        decoder_outputs, _, _ = decoder_lstm(decoder_embeddings,
+                            return_state=True, dropout=decoder_dropout,
+                            recurrent_dropout=decoder_recurrent_dropout)
+
+        decoder_outputs, _, _ = decoder_lstm(decoder_lstm_inputs,
                                              initial_state=encoder_states)
         decoder_dense = Dense(target_vocab_size, activation='softmax')
-        dense_output = decoder_dense(decoder_outputs)
-        dropout_output = Dropout(dropout)(dense_output)
+        decoder_output = decoder_dense(decoder_outputs)
 
-        training_model = Model([encoder_inputs, decoder_inputs], dropout_output)
+        training_model = Model([encoder_inputs, decoder_inputs], decoder_output)
 
         training_model.compile(loss='categorical_crossentropy',
                                optimizer='adam', metrics=['accuracy'])
@@ -50,7 +74,7 @@ class Sequence2Sequence:
         decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
 
         decoder_outputs, state_h, state_c = decoder_lstm(
-            decoder_embeddings, initial_state=decoder_states_inputs)
+            decoder_lstm_inputs, initial_state=decoder_states_inputs)
 
         decoder_states = [state_h, state_c]
         decoder_outputs = decoder_dense(decoder_outputs)
