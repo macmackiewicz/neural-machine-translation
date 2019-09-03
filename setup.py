@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='nmt-cli',
-    version='0.8.0',
+    version='0.11.0',
     py_modules=['nmt_cli'],
     packages=['nmt', 'cloud_runner'],
     entry_points='''
