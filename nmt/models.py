@@ -106,7 +106,7 @@ class Sequence2Sequence:
                                                                state)
 
         # take tokens with highest probabilities up to beam_width
-        candidate_tokens = next_token_predictions.argsort()[-beam_width:][::-1]
+        candidate_tokens = next_token_predictions.argsort()[-beam_width:]
         state = [h, c]
 
         # tuple with sequence probability, decoded sequence
@@ -130,14 +130,16 @@ class Sequence2Sequence:
                 next_token_predictions, h, c = self._decode_next_token(
                     np.array([target_sequence[-1]]), state)
 
-                # logarithm of tokens' probabilities
-                # given probability of a sequence decoded so far
-                sequence_conditional_probability = \
-                    np.log(next_token_predictions) + probability
+                for idx in next_token_predictions.argsort()[-beam_width:]:
+                    # logarithm of tokens' probabilities
+                    # given probability of a sequence decoded so far
+                    conditional_probability = np.log(
+                        next_token_predictions[idx]
+                    ) + probability
+                    sequence = target_sequence + [idx]
 
-                for idx, p in enumerate(sequence_conditional_probability):
                     new_sequence_candidates.append(
-                        (p, target_sequence + [idx], [h, c])
+                        (conditional_probability, sequence, [h, c])
                     )
             sequence_candidates = sorted(new_sequence_candidates,
                                          key=lambda x: x[0])[-beam_width:]

@@ -40,10 +40,13 @@ def main():
 
     original_hyper_parameters = deepcopy(hyper_parameters)
 
-    train_test_split = float(hyper_parameters.pop('train_test_split', 0.2))
+    train_test_split = float(hyper_parameters.pop('train_test_split', 0.0))
+    train_validation_split = float(
+        hyper_parameters.pop('train_validation_split', 0.2))
+
     data_filename = hyper_parameters.pop('data_filename', DEFAULT_DATA_FILENAME)
     epochs = int(hyper_parameters.pop('epochs', 15))
-    batch_size = int(hyper_parameters.pop('batch_size', 64))
+    batch_size = int(hyper_parameters.pop('batch_size', 128))
 
     data_path = os.path.join(data_dir, data_filename)
 
@@ -51,10 +54,14 @@ def main():
     hyper_parameters.pop('_tuning_objective_metric', None)
     sanitised_hyper_parameters = sanitise_hyper_parameters(hyper_parameters)
 
-    evaluator = train_seq2seq(data_path, output_dir, train_test_split, epochs,
-                              batch_size, **sanitised_hyper_parameters)
+    evaluator = train_seq2seq(data_path, output_dir,
+                              train_validation_split=train_validation_split,
+                              train_test_split=train_test_split, epochs=epochs,
+                              batch_size=batch_size,
+                              **sanitised_hyper_parameters)
 
     evaluator.save_artifacts(output_dir)
+    evaluator.get_bleu_score()
 
     # save hyperparameters containing model configuration
     # to be able to properly reconstruct the model
