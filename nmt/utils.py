@@ -9,7 +9,7 @@ from nmt.readers import DelimitedTxtReader
 def train_seq2seq(data_path: str, report_dir: str,
                   train_validation_split: float=0.2,
                   train_test_split: float=0.0,
-                  epochs: int=15, batch_size: int=64, **hyperparameters) \
+                  epochs: int=15, batch_size: int=128, **hyperparameters) \
         -> Sequence2SequenceEvaluator:
     reader = DelimitedTxtReader(data_path)
     dataset = reader.get_dataset()

@@ -28,6 +28,7 @@ def sagemaker_train(config, wait=False):
         {'Name': 'val_acc', 'Regex': 'val_acc: (.*)'},
         {'Name': 'train_loss', 'Regex': '- loss: (.*?) -'},
         {'Name': 'train_acc', 'Regex': '- acc: (.*?) -'},
+        {'Name': 'bleu_score', 'Regex': 'BLEU score: (.*)'}
     ]
 
     clf = sage.estimator.Estimator(image_name=image,

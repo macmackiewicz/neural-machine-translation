@@ -97,7 +97,7 @@ class Sequence2SequenceEvaluator:
 
         return evaluator
 
-    def train(self, batch_size: int=64, **kwargs) \
+    def train(self, batch_size: int=128, **kwargs) \
             -> 'Sequence2SequenceEvaluator':
         fit_generator = SequenceGenerator(
             self.x[:self.train_set_split],
@@ -144,7 +144,7 @@ class Sequence2SequenceEvaluator:
             references.append(self.dataset.translation_references[sentence])
             predicted_sentences.append(self.predict_sentence(sentence).split())
             num_predicted_sequences += 1
-            if num_predicted_sequences % 1000 == 0:
+            if num_predicted_sequences % 500 == 0:
                 self.logger.info(
                     'Decoded {} sequences'.format(num_predicted_sequences))
 

@@ -62,9 +62,10 @@ class TokenizerPair(SourceTargetMixin):
 class TextDataset(BaseDataset):
     def __init__(self, source_sentences: Union[Iterable, Sized],
                  target_sentences: Union[Iterable, Sized],
-                 shuffle: bool=True):
+                 shuffle: bool=True, word_frequency_threshold: int=2):
         super().__init__(source_sentences, target_sentences, shuffle)
 
+        self.word_frequency_threshold = word_frequency_threshold
         self.tokenizer_pair = TokenizerPair()
 
     @cached_property
@@ -85,11 +86,11 @@ class TextDataset(BaseDataset):
 
     @property
     def source_vocab_size(self) -> int:
-        return self.get_vocab_size('source')
+        return self.tokenizer_pair.source.num_words
 
     @property
     def target_vocab_size(self) -> int:
-        return self.get_vocab_size('target')
+        return self.tokenizer_pair.target.num_words
 
     def get_vocab_size(self, level: str) -> int:
         if not self.tokenizer_pair.is_tokenized:
@@ -103,6 +104,20 @@ class TextDataset(BaseDataset):
         if not self.tokenizer_pair.is_tokenized:
             self.tokenizer_pair['source'].fit_on_texts(self.source)
             self.tokenizer_pair['target'].fit_on_texts(self.target)
+
+            # limit number of words returned from tokenizer
+            # according to frequency threshold
+            self.tokenizer_pair['source'].num_words = len(
+                [word for word, count
+                 in self.tokenizer_pair['source'].word_counts.items()
+                 if count > self.word_frequency_threshold - 1]
+            )
+
+            self.tokenizer_pair['target'].num_words = len(
+                [word for word, count
+                 in self.tokenizer_pair['target'].word_counts.items()
+                 if count > self.word_frequency_threshold - 1]
+            )
 
     def get_sequences(self, level: str) -> np.ndarray:
         if not self.tokenizer_pair.is_tokenized:
